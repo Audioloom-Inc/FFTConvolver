@@ -184,7 +184,8 @@ private:
 /**
 * @brief Type of one sample
 */
-typedef float Sample;
+// typedef float Sample;
+using Sample = double;
 
 
 /**

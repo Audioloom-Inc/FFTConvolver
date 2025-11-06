@@ -56,8 +56,8 @@ namespace audiofft
       AudioFFTImpl& operator=(const AudioFFTImpl&) = delete;
       virtual ~AudioFFTImpl() = default;
       virtual void init(size_t size) = 0;
-      virtual void fft(const float* data, float* re, float* im) = 0;
-      virtual void ifft(float* data, const float* re, const float* im) = 0;
+      virtual void fft(const double* data, double* re, double* im) = 0;
+      virtual void ifft(double* data, const double* re, const double* im) = 0;
     };
 
 
@@ -129,7 +129,7 @@ namespace audiofft
       }
     }
 
-    virtual void fft(const float* data, float* re, float* im) override
+    virtual void fft(const double* data, double* re, double* im) override
     {
       // Convert into the format as required by the Ooura FFT
       detail::ConvertBuffer(_buffer.data(), data, _size);
@@ -140,12 +140,12 @@ namespace audiofft
       {
         double* b = _buffer.data();
         double* bEnd = b + _size;
-        float *r = re;
-        float *i = im;
+        double *r = re;
+        double *i = im;
         while (b != bEnd)
         {
-          *(r++) = static_cast<float>(*(b++));
-          *(i++) = static_cast<float>(-(*(b++)));
+          *(r++) = static_cast<double>(*(b++));
+          *(i++) = static_cast<double>(-(*(b++)));
         }
       }
       const size_t size2 = _size / 2;
@@ -154,14 +154,14 @@ namespace audiofft
       im[size2] = 0.0;
     }
 
-    virtual void ifft(float* data, const float* re, const float* im) override
+    virtual void ifft(double* data, const double* re, const double* im) override
     {
       // Convert into the format as required by the Ooura FFT
       {
         double* b = _buffer.data();
         double* bEnd = b + _size;
-        const float *r = re;
-        const float *i = im;
+        const double *r = re;
+        const double *i = im;
         while (b != bEnd)
         {
           *(b++) = static_cast<double>(*(r++));
@@ -827,43 +827,43 @@ namespace audiofft
       }
     }
 
-    virtual void fft(const float* data, float* re, float* im) override
+    virtual void fft(const double* data, double* re, double* im) override
     {
       const size_t size2 = _size / 2;
-      DSPSplitComplex splitComplex;
+      DSPDoubleSplitComplex splitComplex;
       splitComplex.realp = re;
       splitComplex.imagp = im;
       vDSP_ctoz(reinterpret_cast<const COMPLEX*>(data), 2, &splitComplex, 1, size2);
       vDSP_fft_zrip(_fftSetup, &splitComplex, 1, _powerOf2, FFT_FORWARD);
-      const float factor = 0.5f;
-      vDSP_vsmul(re, 1, &factor, re, 1, size2);
-      vDSP_vsmul(im, 1, &factor, im, 1, size2);
+      const double factor = 0.5f;
+      vDSP_vsmulD(re, 1, &factor, re, 1, size2);
+      vDSP_vsmulD(im, 1, &factor, im, 1, size2);
       re[size2] = im[0];
       im[0] = 0.0f;
       im[size2] = 0.0f;
     }
 
-    virtual void ifft(float* data, const float* re, const float* im) override
+    virtual void ifft(double* data, const double* re, const double* im) override
     {
       const size_t size2 = _size / 2;
-      ::memcpy(_re.data(), re, size2 * sizeof(float));
-      ::memcpy(_im.data(), im, size2 * sizeof(float));
+      ::memcpy(_re.data(), re, size2 * sizeof(double));
+      ::memcpy(_im.data(), im, size2 * sizeof(double));
       _im[0] = re[size2];
-      DSPSplitComplex splitComplex;
+      DSPDoubleSplitComplex splitComplex;
       splitComplex.realp = _re.data();
       splitComplex.imagp = _im.data();
       vDSP_fft_zrip(_fftSetup, &splitComplex, 1, _powerOf2, FFT_INVERSE);
       vDSP_ztoc(&splitComplex, 1, reinterpret_cast<COMPLEX*>(data), 2, size2);
-      const float factor = 1.0f / static_cast<float>(_size);
-      vDSP_vsmul(data, 1, &factor, data, 1, _size);
+      const double factor = 1.0f / static_cast<double>(_size);
+      vDSP_vsmulD(data, 1, &factor, data, 1, _size);
     }
 
   private:
     size_t _size;
     size_t _powerOf2;
     FFTSetup _fftSetup;
-    std::vector<float> _re;
-    std::vector<float> _im;
+    std::vector<double> _re;
+    std::vector<double> _im;
   };
 
 
@@ -948,9 +948,9 @@ namespace audiofft
           _size = size;
           _complexSize = AudioFFT::ComplexSize(_size);
           const size_t complexSize = AudioFFT::ComplexSize(_size);
-          _data = reinterpret_cast<float*>(fftwf_malloc(_size * sizeof(float)));
-          _re = reinterpret_cast<float*>(fftwf_malloc(complexSize * sizeof(float)));
-          _im = reinterpret_cast<float*>(fftwf_malloc(complexSize * sizeof(float)));
+          _data = reinterpret_cast<double*>(fftwf_malloc(_size * sizeof(double)));
+          _re = reinterpret_cast<double*>(fftwf_malloc(complexSize * sizeof(double)));
+          _im = reinterpret_cast<double*>(fftwf_malloc(complexSize * sizeof(double)));
 
           fftw_iodim dim;
           dim.n = static_cast<int>(size);
@@ -962,20 +962,20 @@ namespace audiofft
       }
     }
 
-    virtual void fft(const float* data, float* re, float* im) override
+    virtual void fft(const double* data, double* re, double* im) override
     {
-      ::memcpy(_data, data, _size * sizeof(float));
+      ::memcpy(_data, data, _size * sizeof(double));
       fftwf_execute_split_dft_r2c(_planForward, _data, _re, _im);
-      ::memcpy(re, _re, _complexSize * sizeof(float));
-      ::memcpy(im, _im, _complexSize * sizeof(float));
+      ::memcpy(re, _re, _complexSize * sizeof(double));
+      ::memcpy(im, _im, _complexSize * sizeof(double));
     }
 
-    virtual void ifft(float* data, const float* re, const float* im) override
+    virtual void ifft(double* data, const double* re, const double* im) override
     {
-      ::memcpy(_re, re, _complexSize * sizeof(float));
-      ::memcpy(_im, im, _complexSize * sizeof(float));
+      ::memcpy(_re, re, _complexSize * sizeof(double));
+      ::memcpy(_im, im, _complexSize * sizeof(double));
       fftwf_execute_split_dft_c2r(_planBackward, _re, _im, _data);
-      detail::ScaleBuffer(data, _data, 1.0f / static_cast<float>(_size), _size);
+      detail::ScaleBuffer(data, _data, 1.0f / static_cast<double>(_size), _size);
     }
 
   private:
@@ -983,9 +983,9 @@ namespace audiofft
     size_t _complexSize;
     fftwf_plan _planForward;
     fftwf_plan _planBackward;
-    float* _data;
-    float* _re;
-    float* _im;
+    double* _data;
+    double* _re;
+    double* _im;
   };
 
 
@@ -1020,13 +1020,13 @@ namespace audiofft
   }
 
 
-  void AudioFFT::fft(const float* data, float* re, float* im)
+  void AudioFFT::fft(const double* data, double* re, double* im)
   {
     _impl->fft(data, re, im);
   }
 
 
-  void AudioFFT::ifft(float* data, const float* re, const float* im)
+  void AudioFFT::ifft(double* data, const double* re, const double* im)
   {
     _impl->ifft(data, re, im);
   }
